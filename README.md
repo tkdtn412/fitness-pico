@@ -11,7 +11,7 @@ Raspberry Pi Pico 2 W 3대로 구성한 푸시업 트래커입니다. 센서 보
 - `Display` 보드가 LCD 16x2와 부저로 반복 수, 속도 경고, 사용자 전환을 표시합니다.
 - `Browser`는 Dashboard 보드의 웹 UI에서 시작/종료 제어와 RFID 등록을 수행합니다.
 
-자세한 흐름은 [docs/architecture.md](docs/architecture.md), RFID 동작은 [docs/rfid-user-flow.md](docs/rfid-user-flow.md), 배선과 네트워크 설정은 [docs/hardware-setup.md](docs/hardware-setup.md), 제출용 기술서 초안은 [docs/1차_1조_프로젝트_기술서.md](docs/1차_1조_프로젝트_기술서.md)에 정리되어 있습니다.
+자세한 흐름은 [docs/architecture.md](docs/architecture.md), RFID 동작은 [docs/rfid-user-flow.md](docs/rfid-user-flow.md), 배선과 네트워크 설정은 [docs/hardware-setup.md](docs/hardware-setup.md), 제출용 기술서는 [PDF](docs/1차_1조_프로젝트_기술서.pdf)와 [DOCX](docs/1차_1조_프로젝트_기술서.docx)에 정리되어 있습니다.
 
 ## 시스템 구성
 
@@ -29,15 +29,48 @@ Raspberry Pi Pico 2 W 3대로 구성한 푸시업 트래커입니다. 센서 보
 - RFID 카드 태그 기반 사용자 전환
 - 대시보드에서 RFID 사용자 등록과 현재 사용자별 통계 확인
 
+## 대시보드 기능
+
+Dashboard 보드는 Pico 2 W에서 직접 HTTP 서버를 실행하고, 브라우저 UI와 REST 형태의 API를 제공합니다.
+
+- MQTT 연결 상태, 현재 운동 상태, 세션 시간, 반복 수, 세트 수, 최근 반복 속도 표시
+- `운동 시작` / `운동 종료` 버튼으로 Sensor 보드에 제어 명령 발행
+- 체중 입력값을 기준으로 세션 칼로리와 일일 누적 칼로리 추정
+- Sensor/Display 보드 heartbeat를 이용한 온라인/오프라인 상태 표시
+- 최근 반복 속도 히스토리 바 차트와 경고/휴식/일일 누적 상태 표시
+- RFID 카드 등록, 사용자 전환, 사용자별 세션/누적 통계와 목표 세트 달성 여부 표시
+
+## Dashboard HTTP API
+
+| 메서드 | 경로 | 용도 |
+| --- | --- | --- |
+| `GET` | `/api/status` | MQTT, 운동 상태, 보드 상태, RFID 등록 대기 상태 조회 |
+| `POST` | `/api/control/start` | 운동 세션 시작 명령 발행 |
+| `POST` | `/api/control/stop` | 운동 세션 종료 명령 발행 |
+| `GET` | `/api/users` | 등록된 RFID 사용자 목록 조회 |
+| `GET` | `/api/users/current` | 현재 선택된 사용자 조회 |
+| `POST` | `/api/users` | UID, 이름, 체중, 목표 세트로 사용자 등록 |
+| `POST` | `/api/rfid/scan-mode` | 미등록 카드 등록 대기 모드 시작 |
+| `GET` | `/api/stats/current` | 현재 사용자 기준 세션/누적 통계 조회 |
+
+## 구현 포인트
+
+- Firmware: C, Pico SDK, CMake 기반으로 Sensor/Display/Dashboard 펌웨어를 분리 빌드
+- Network: Wi-Fi, lwIP, MQTT publish/subscribe, 내장 HTTP 서버, mDNS 접근 지원
+- Hardware: HC-SR04 거리 센서, MFRC522 RFID, I2C LCD, buzzer 연동
+- State: Dashboard 보드 플래시에 RFID 사용자 목록을 저장하고 부팅 시 복원
+- UI: Pico 내부에 HTML/CSS/JavaScript 대시보드를 내장해 별도 웹 서버 없이 브라우저 제어 제공
+
 ## 저장소 구조
 
 ```text
 .
-├── CMakeLists.txt          # 루트 빌드 진입점
+├── cmakeLists.txt          # 루트 빌드 진입점
 ├── README.md
 ├── docs/
 │   ├── architecture.md
-│   ├── 1차_1조_프로젝트_기술서.md
+│   ├── 1차_1조_프로젝트_기술서.docx
+│   ├── 1차_1조_프로젝트_기술서.pdf
 │   ├── hardware-setup.md
 │   ├── rfid-user-flow.md
 │   └── assets/
@@ -97,7 +130,9 @@ cmake --build build/fitpico --target \
 5. RFID 카드를 태그해 사용자를 전환하거나, 미등록 카드면 대시보드에서 등록을 진행합니다.
 6. 세션 종료 후 대시보드에서 현재 사용자 기준 통계를 확인합니다.
 
-# 📅 First_Project: 피코보드를 이용한 푸쉬업 모니터링 시스템
+## 개발 기록
+
+### First_Project: 피코보드를 이용한 푸쉬업 모니터링 시스템
 
 **기간:** 2026.03.30 ~ 2026.04.03  
 **팀 구성:** 이상수, 박찬웅, 홍지나
